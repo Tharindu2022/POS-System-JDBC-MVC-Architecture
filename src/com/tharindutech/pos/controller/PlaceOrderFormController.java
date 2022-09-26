@@ -113,13 +113,6 @@ public class PlaceOrderFormController {
             } catch (ClassNotFoundException | SQLException e) {
             e.printStackTrace();
         }
-
-
-        for (Item item : DataBase.itemTable) {
-            if (item.getCode().equals(cmbItemCodes.getValue())) {
-
-            }
-        }
     }
 
     private void setCustomerDetails() {
