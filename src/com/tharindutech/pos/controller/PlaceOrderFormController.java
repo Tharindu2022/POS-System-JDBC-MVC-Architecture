@@ -266,7 +266,7 @@ public class PlaceOrderFormController {
     }
 
 
-    public void placeOrderOnAction(ActionEvent actionEvent) {
+    public void placeOrderOnAction(ActionEvent actionEvent) throws SQLException {
         if (obList.isEmpty()) return;
         ArrayList<ItemDetails> details = new ArrayList<>();
         for (CartTM tm : obList) {
@@ -275,9 +275,12 @@ public class PlaceOrderFormController {
 
         Order order = new Order(txtOrderId.getText(), new Date(),
                 Double.parseDouble(lblTotal.getText()), cmbCustomerIds.getValue(), details);
+        Connection con=null;
         try {
+            con = DBConnection.getInstance().getConnection();
+            con.setAutoCommit(false);
             String sql="INSERT INTO `Order` VALUES (?,?,?,?)";
-            PreparedStatement statement= DBConnection.getInstance().getConnection().prepareStatement(sql);
+            PreparedStatement statement= con.prepareStatement(sql);
             statement.setString(1,order.getOrderId());
             statement.setString(2,txtDate.getText());
             statement.setDouble(3,order.getTotalCost());
@@ -287,18 +290,23 @@ public class PlaceOrderFormController {
            if(isOrderSaved){
                boolean isAllUpdated=manageQty(details);
                if(isAllUpdated){
+                   con.commit();
                    new Alert(Alert.AlertType.CONFIRMATION,"Order Placed").show();
                    clearAll();
                } else {
+                   con.setAutoCommit(true);
+                   con.rollback();
                    new Alert(Alert.AlertType.WARNING,"Try Again").show();
                }
-
-              new Alert(Alert.AlertType.INFORMATION,"").show();
            } else {
+               con.setAutoCommit(true);
+               con.rollback();
                 new Alert(Alert.AlertType.WARNING,"Try Again!").show();
            }
         } catch (SQLException | ClassNotFoundException e){
             e.printStackTrace();
+        } finally {
+            con.setAutoCommit(true);
         }
     }
 

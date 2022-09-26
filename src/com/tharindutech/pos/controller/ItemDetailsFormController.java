@@ -1,5 +1,6 @@
 package com.tharindutech.pos.controller;
 
+import com.tharindutech.pos.db.DBConnection;
 import com.tharindutech.pos.db.DataBase;
 import com.tharindutech.pos.model.ItemDetails;
 import com.tharindutech.pos.model.Order;
@@ -16,6 +17,8 @@ import javafx.scene.layout.AnchorPane;
 import javafx.stage.Stage;
 
 import java.io.IOException;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
 
 public class ItemDetailsFormController {
 
@@ -38,18 +41,21 @@ public class ItemDetailsFormController {
 
 
     public  void loadOrderDetails(String id){
-        for (Order o: DataBase.orderTable) {
-            if(o.getOrderId().equals(id)){
-                ObservableList<ItemDetailTM> tmList= FXCollections.observableArrayList();
-                for ( ItemDetails d:o.getItemDetails()){
-                    double tempUnitPrice=d.getUnitPrice();
-                    int qty=d.getQty();
-                    double tmpTotal=tempUnitPrice*qty;
-                    tmList.add(new ItemDetailTM(d.getCode(),d.getUnitPrice(),d.getQty(),tmpTotal));
-                }
-                tblItems.setItems(tmList);
-                return;
+        try {
+           String sql= "SELECT itemCode,unitPrice,qty FROM `Order Details` WHERE orderId=? ";
+            PreparedStatement statement= DBConnection.getInstance().getConnection().prepareStatement(sql);
+             statement.setString(1,id);
+            ResultSet set = statement.executeQuery();
+            ObservableList<ItemDetailTM> tmList= FXCollections.observableArrayList();
+            while (set.next()){
+                double tempUnitPrice=set.getDouble(2);
+                int tempQty=set.getInt(3);
+                double tmpTotal=tempQty*tempUnitPrice;
+                tmList.add(new ItemDetailTM(set.getString(1),set.getDouble(2),set.getInt(3),tmpTotal));
             }
+            tblItems.setItems(tmList);
+        } catch (Exception e){
+           e.printStackTrace();
         }
     }
 
