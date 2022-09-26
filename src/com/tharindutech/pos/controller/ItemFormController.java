@@ -1,6 +1,7 @@
 package com.tharindutech.pos.controller;
 
 import com.jfoenix.controls.JFXButton;
+import com.tharindutech.pos.db.DBConnection;
 import com.tharindutech.pos.db.DataBase;
 import com.tharindutech.pos.model.Customer;
 import com.tharindutech.pos.model.Item;
@@ -17,6 +18,7 @@ import javafx.scene.layout.AnchorPane;
 import javafx.stage.Stage;
 
 import java.io.IOException;
+import java.sql.*;
 import java.util.Optional;
 
 public class ItemFormController {
@@ -80,26 +82,48 @@ public class ItemFormController {
     public void saveItemOnAction(ActionEvent actionEvent) {
         Item i = new Item(txtCode.getText(), txtDescription.getText(), Double.parseDouble(txtUnitPrice.getText()), Integer.parseInt(txtQtyOnHand.getText()));
         if (btnSaveItem.getText().equalsIgnoreCase("Save Item")) {
-            boolean isSaved = DataBase.itemTable.add(i);
-            if (isSaved) {
-                searchItems(searchText);
-                clearFields();
-                new Alert(Alert.AlertType.INFORMATION, "Customer Saved Successfully").show();
-            } else {
-                new Alert(Alert.AlertType.WARNING, "Try Again !").show();
-            }
-        } else {
-            for (int j = 0; j < DataBase.itemTable.size(); j++) {
-                if (txtCode.getText().equalsIgnoreCase(DataBase.itemTable.get(j).getCode())) {
-                    DataBase.itemTable.get(j).setDescription(txtDescription.getText());
-                    DataBase.itemTable.get(j).setUnitPrice(Double.parseDouble(txtUnitPrice.getText()));
-                    DataBase.itemTable.get(j).setQtyOnHand(Integer.parseInt(txtQtyOnHand.getText()));
 
+            try {
+                String sql = "INSERT INTO Item VALUES(?,?,?,?)";
+                PreparedStatement statement = DBConnection.getInstance().getConnection().prepareStatement(sql);
+                statement.setString(1, i.getCode());
+                statement.setString(2, i.getDescription());
+                statement.setDouble(3, i.getUnitPrice());
+                statement.setInt(4, i.getQtyOnHand());
+
+                if (statement.executeUpdate() > 0) {
                     searchItems(searchText);
-                    new Alert(Alert.AlertType.INFORMATION, "Customer Updated Successfully").show();
                     clearFields();
+                    new Alert(Alert.AlertType.INFORMATION, "Item  Saved Successfully").show();
+                } else {
+                    new Alert(Alert.AlertType.WARNING, "Try Again !").show();
                 }
+
+            } catch (ClassNotFoundException | SQLException e) {
+                e.printStackTrace();
             }
+
+        } else {
+            try {
+                String sql = "UPDATE Item SET description=?,unitPrice=?,qtyOnHand=? WHERE code= ?";
+                PreparedStatement statement = DBConnection.getInstance().getConnection().prepareStatement(sql);
+                statement.setString(1, i.getDescription());
+                statement.setDouble(2, i.getUnitPrice());
+                statement.setDouble(3, i.getQtyOnHand());
+                statement.setString(4, i.getCode());
+
+                if (statement.executeUpdate() > 0) {
+                    searchItems(searchText);
+                    clearFields();
+                    new Alert(Alert.AlertType.INFORMATION, "Item Updated Successfully").show();
+                } else {
+                    new Alert(Alert.AlertType.WARNING, "Try Again !").show();
+                }
+
+            } catch (ClassNotFoundException | SQLException e) {
+                e.printStackTrace();
+            }
+
         }
     }
 
@@ -111,30 +135,43 @@ public class ItemFormController {
     }
 
     private void searchItems(String text) {
-        ObservableList<ItemTM> tmList = FXCollections.observableArrayList();
-        for (Item i : DataBase.itemTable) {
-
-            if (i.getDescription().contains(text)) {
+        String searchText = "%" + text + "%";
+        try {
+            ObservableList<ItemTM> tmList = FXCollections.observableArrayList();
+            String sql = "SELECT * FROM Item WHERE description LIKE ? ";
+            PreparedStatement statement = DBConnection.getInstance().getConnection().prepareStatement(sql);
+            statement.setString(1, searchText);
+            ResultSet set = statement.executeQuery();
+            while (set.next()) {
                 Button btn = new Button("DELETE");
-                tmList.add(new ItemTM(i.getCode(), i.getDescription(), i.getUnitPrice(), i.getQtyOnHand(), btn));
+                ItemTM tm = new ItemTM(set.getString(1), set.getString(2), set.getDouble(3), set.getInt(4), btn);
+                tmList.add(tm);
 
                 btn.setOnAction(event -> {
                     Alert alert = new Alert(Alert.AlertType.CONFIRMATION, "Are you sure that you want to delete?", ButtonType.YES, ButtonType.NO);
                     Optional<ButtonType> buttonType = alert.showAndWait();
                     if (buttonType.get() == ButtonType.YES) {
-                        boolean isDeleted = DataBase.itemTable.remove(i);
-                        if (isDeleted) {
-                            searchItems(searchText);
-                            new Alert(Alert.AlertType.INFORMATION, "Item Deleted Successfully").show();
-                        } else {
-                            new Alert(Alert.AlertType.WARNING, "Try Again !").show();
+                        try {
+                            //ObservableList<CustomerTM> tmList = FXCollections.observableArrayList();
+                            String sql1 = "DELETE FROM Item WHERE code=?";
+                            PreparedStatement statement1 = DBConnection.getInstance().getConnection().prepareStatement(sql1);
+                            statement1.setString(1, tm.getCode());
+                            if (statement1.executeUpdate() > 0) {
+                                searchItems(searchText);
+                                new Alert(Alert.AlertType.INFORMATION, "Item Deleted Successfully").show();
+                            } else {
+                                new Alert(Alert.AlertType.WARNING, "Try Again !").show();
+                            }
+
+                        } catch (ClassNotFoundException | SQLException e) {
+                            e.printStackTrace();
                         }
                     }
                 });
             }
-
+            tblItem.setItems(tmList);
+        } catch (ClassNotFoundException | SQLException e) {
+            e.printStackTrace();
         }
-
-        tblItem.setItems(tmList);
-    }
+        }
 }

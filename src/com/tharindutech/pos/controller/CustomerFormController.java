@@ -1,6 +1,7 @@
 package com.tharindutech.pos.controller;
 
 import com.jfoenix.controls.JFXButton;
+import com.tharindutech.pos.db.DBConnection;
 import com.tharindutech.pos.db.DataBase;
 import com.tharindutech.pos.model.Customer;
 import com.tharindutech.pos.view.tm.CustomerTM;
@@ -17,6 +18,7 @@ import javafx.stage.Stage;
 import javafx.stage.Window;
 
 import java.io.IOException;
+import java.sql.*;
 import java.util.Optional;
 
 public class CustomerFormController {
@@ -35,7 +37,7 @@ public class CustomerFormController {
     public JFXButton btnSaveCustomer;
     public AnchorPane customerFormContext;
     public TextField txtSearch;
-    private String searchText="";
+    private String searchText = "";
 
     public void initialize() {
         colId.setCellValueFactory(new PropertyValueFactory<>("id"));
@@ -51,10 +53,9 @@ public class CustomerFormController {
         });
 
         txtSearch.textProperty().addListener((observable, oldValue, newValue) -> {
-                    searchText=newValue;
-                    searchCustomers(searchText);
-                }
-        );
+            searchText = newValue;
+            searchCustomers(searchText);
+        });
 
 
     }
@@ -68,56 +69,108 @@ public class CustomerFormController {
     }
 
     private void searchCustomers(String text) {
-        ObservableList<CustomerTM> tmList = FXCollections.observableArrayList();
-        for (Customer c : DataBase.customerTable) {
-
-            if(c.getName().contains(text) || c.getAddress().contains(text)){
+        String searchText = "%" + text + "%";
+        try {
+            ObservableList<CustomerTM> tmList = FXCollections.observableArrayList();
+            String sql = "SELECT * FROM Customer WHERE name LIKE ? || address LIKE ?";
+            PreparedStatement statement = DBConnection.getInstance().getConnection().prepareStatement(sql);
+            statement.setString(1, searchText);
+            statement.setString(2, searchText);
+            ResultSet set = statement.executeQuery();
+            while (set.next()) {
                 Button btn = new Button("DELETE");
-                tmList.add(new CustomerTM(c.getId(), c.getName(), c.getAddress(), c.getSalary(), btn));
+                CustomerTM tm = new CustomerTM(set.getString(1), set.getString(2), set.getString(3), set.getDouble(4), btn);
+                tmList.add(tm);
 
                 btn.setOnAction(event -> {
-                    Alert alert = new Alert(Alert.AlertType.CONFIRMATION, "Are you sure that you want to delte?", ButtonType.YES, ButtonType.NO);
+                    Alert alert = new Alert(Alert.AlertType.CONFIRMATION, "Are you sure that you want to delete?", ButtonType.YES, ButtonType.NO);
                     Optional<ButtonType> buttonType = alert.showAndWait();
                     if (buttonType.get() == ButtonType.YES) {
-                        boolean isDeleted = DataBase.customerTable.remove(c);
-                        if (isDeleted) {
-                            searchCustomers(searchText);
-                            new Alert(Alert.AlertType.INFORMATION, "Customer Deleted Successfully").show();
-                        } else {
-                            new Alert(Alert.AlertType.WARNING, "Try Again !").show();
+
+                        try {
+                            String sql1 = "DELETE FROM Customer WHERE id=?";
+                            PreparedStatement statement1 = DBConnection.getInstance().getConnection().prepareStatement(sql1);
+                            statement1.setString(1, tm.getId());
+                            if (statement1.executeUpdate() > 0) {
+                                searchCustomers(searchText);
+                                new Alert(Alert.AlertType.INFORMATION, "Customer Deleted Successfully").show();
+                            } else {
+                                new Alert(Alert.AlertType.WARNING, "Try Again !").show();
+                            }
+
+                        } catch (ClassNotFoundException | SQLException e) {
+                            e.printStackTrace();
                         }
+
+
                     }
                 });
+
             }
-
+            tblCustomer.setItems(tmList);
+        } catch (ClassNotFoundException | SQLException e) {
+            e.printStackTrace();
         }
-
-        tblCustomer.setItems(tmList);
     }
 
     public void saveCustomerOnAction(ActionEvent actionEvent) {
         Customer c = new Customer(txtId.getText(), txtName.getText(), txtAddress.getText(), Double.parseDouble(txtSalary.getText()));
         if (btnSaveCustomer.getText().equalsIgnoreCase("Save Customer")) {
-            boolean isSaved = DataBase.customerTable.add(c);
-            if (isSaved) {
-                searchCustomers(searchText);
-                clearFields();
-                new Alert(Alert.AlertType.INFORMATION, "Customer Saved Successfully").show();
-            } else {
-                new Alert(Alert.AlertType.WARNING, "Try Again !").show();
-            }
-        } else {
-            for (int i = 0; i < DataBase.customerTable.size(); i++) {
-                if (txtId.getText().equalsIgnoreCase(DataBase.customerTable.get(i).getId())) {
-                    DataBase.customerTable.get(i).setName(txtName.getText());
-                    DataBase.customerTable.get(i).setAddress(txtAddress.getText());
-                    DataBase.customerTable.get(i).setSalary(Double.parseDouble(txtSalary.getText()));
+            try {
+                String sql = "INSERT INTO Customer VALUES(?,?,?,?)";
+                PreparedStatement statement = DBConnection.getInstance().getConnection().prepareStatement(sql);
+                statement.setString(1, c.getId());
+                statement.setString(2, c.getName());
+                statement.setString(3, c.getAddress());
+                statement.setDouble(4, c.getSalary());
+
+                if (statement.executeUpdate() > 0) {
                     searchCustomers(searchText);
-                    new Alert(Alert.AlertType.INFORMATION, "Customer Updated Successfully").show();
                     clearFields();
+                    new Alert(Alert.AlertType.INFORMATION, "Customer Saved Successfully").show();
+                } else {
+                    new Alert(Alert.AlertType.WARNING, "Try Again !").show();
                 }
 
+            } catch (ClassNotFoundException | SQLException e) {
+                e.printStackTrace();
             }
+
+
+        } else {
+
+            try {
+                Class.forName("com.mysql.cj.jdbc.Driver");
+                Connection connection = DriverManager.getConnection("jdbc:mysql://localhost:3306/Thogakade", "root", "1234");
+                String sql = "UPDATE Customer SET name=?,address=?,salary=? WHERE id= ?";
+                PreparedStatement statement = connection.prepareStatement(sql);
+                statement.setString(1, c.getName());
+                statement.setString(2, c.getAddress());
+                statement.setDouble(3, c.getSalary());
+                statement.setString(4, c.getId());
+
+                if (statement.executeUpdate() > 0) {
+                    searchCustomers(searchText);
+                    clearFields();
+                    new Alert(Alert.AlertType.INFORMATION, "Customer Updated Successfully").show();
+                } else {
+                    new Alert(Alert.AlertType.WARNING, "Try Again !").show();
+                }
+
+            } catch (ClassNotFoundException | SQLException e) {
+                e.printStackTrace();
+            }
+
+//            for (int i = 0; i < DataBase.customerTable.size(); i++) {
+//                if (txtId.getText().equalsIgnoreCase(DataBase.customerTable.get(i).getId())) {
+//                    DataBase.customerTable.get(i).setName(txtName.getText());
+//                    DataBase.customerTable.get(i).setAddress(txtAddress.getText());
+//                    DataBase.customerTable.get(i).setSalary(Double.parseDouble(txtSalary.getText()));
+//                    searchCustomers(searchText);
+//                    new Alert(Alert.AlertType.INFORMATION, "Customer Updated Successfully").show();
+//                    clearFields();
+//                }
+//            }
 
         }
     }
@@ -137,4 +190,6 @@ public class CustomerFormController {
         Stage stage = (Stage) customerFormContext.getScene().getWindow();
         stage.setScene(new Scene(FXMLLoader.load(getClass().getResource("../view/DashboardForm.fxml"))));
     }
+
+
 }

@@ -25,7 +25,7 @@ public class DataBase {
         itemTable.add(new Item("I-002","Description-2",20,20));
         itemTable.add(new Item("I-003","Description-3",30,30));
         itemTable.add(new Item("I-004","Description-4",40,40));
-        itemTable.add(new Item("I-005","Description-5",50,50));
+
     }
 
 

@@ -15,4 +15,5 @@ public class AppInitializer extends Application {
         primaryStage.setScene(new Scene(FXMLLoader.load(getClass().getResource("./view/DashBoardForm.fxml"))));
         primaryStage.show();
     }
+
 }
